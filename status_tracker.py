@@ -5,6 +5,7 @@ Monitors status pages and publishes incident updates to Redis.
 """
 
 import asyncio
+import os
 import random
 import sys
 import uuid
@@ -16,8 +17,9 @@ import redis.asyncio as redis
 
 
 # Configuration
-REDIS_HOST = "localhost"
-REDIS_PORT = 6379
+REDIS_URL = os.environ.get("REDIS_URL", None)
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 STREAM_NAME = "status-events"
 CONSUMER_GROUP = "status-consumers"
 CONSUMER_NAME = "console-consumer-1"
@@ -241,12 +243,17 @@ async def main():
     print("[INFO] Starting Status Page Tracker...")
 
     # Connect to Redis
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False)
+    if REDIS_URL:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=False)
+        redis_display = REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL
+    else:
+        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False)
+        redis_display = f"{REDIS_HOST}:{REDIS_PORT}"
 
     try:
         # Test Redis connection
         await redis_client.ping()
-        print(f"[INFO] Connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
+        print(f"[INFO] Connected to Redis at {redis_display}")
     except Exception as e:
         print(f"[ERROR] Failed to connect to Redis: {e}")
         print("[ERROR] Make sure Redis is running: docker compose up -d")
